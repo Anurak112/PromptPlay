@@ -68,7 +68,7 @@ export default function LibraryPage() {
 
             // Tags Filter (prompt must have at least one of the selected tags, if tags are selected)
             if (filters.tags.length > 0) {
-                const hasMatchingTag = prompt.tags.some(t => filters.tags.includes(t));
+                const hasMatchingTag = prompt.tags.some((t: string) => filters.tags.includes(t));
                 if (!hasMatchingTag) return false;
             }
 

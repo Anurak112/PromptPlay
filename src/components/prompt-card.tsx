@@ -10,10 +10,10 @@ interface PromptCardProps {
         id: string;
         title: string;
         imageUrl: string;
-        imageUrl: string;
         fullText?: string;
         toolUsed?: string;
         isSaved?: boolean;
+        isPremium?: boolean;
     };
     onSaveToggle?: (id: string) => void;
     actionButton?: React.ReactNode;

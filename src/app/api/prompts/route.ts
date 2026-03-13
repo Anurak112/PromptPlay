@@ -12,7 +12,7 @@ export async function GET() {
         });
 
         // Format for frontend
-        const formattedPrompts = prompts.map(p => ({
+        const formattedPrompts = prompts.map((p: any) => ({
             id: p.id,
             title: p.title,
             fullText: p.fullText,
@@ -20,7 +20,7 @@ export async function GET() {
             isPremium: p.isPremium,
             toolUsed: p.toolUsed,
             category: p.category?.name || "Uncategorized", // Fallback for safety
-            tags: p.tags.map(t => t.name),
+            tags: p.tags.map((t: any) => t.name),
             isSaved: false // We will need user relation for real saved states later
         }));
 

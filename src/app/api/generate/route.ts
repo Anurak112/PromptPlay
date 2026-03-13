@@ -4,6 +4,26 @@ import {
     getAvailableModels,
     parseAspectRatio,
 } from "@/lib/providers";
+import { put } from "@vercel/blob";
+import crypto from "crypto";
+
+async function storeImageInBlob(sourceUrl: string): Promise<string> {
+    try {
+        const response = await fetch(sourceUrl);
+        if (!response.ok) throw new Error("Failed to fetch image from provider url");
+        const blob = await response.blob();
+        
+        const fileName = `generations/${crypto.randomUUID()}.png`; // Usually png/jpg from AI
+        const storedBlob = await put(fileName, blob, {
+            access: 'public',
+        });
+        
+        return storedBlob.url;
+    } catch (error) {
+        console.error("Failed to store image in Vercel Blob:", error);
+        return sourceUrl; // Fallback to original URL if upload fails
+    }
+}
 
 export async function POST(req: Request) {
     try {
@@ -48,20 +68,23 @@ export async function POST(req: Request) {
                         height,
                         seed: Math.floor(Math.random() * 10_000_000),
                     })
-                        .then((result) => ({
-                            status: "fulfilled" as const,
-                            value: {
-                                id: result.id,
-                                src: result.url,
-                                prompt: result.prompt,
-                                model:
-                                    availableModels.find((m) => m.id === modelId)?.displayName ??
-                                    modelId,
-                                provider: result.provider,
-                                // Random masonry height for the UI grid
-                                height: `h-[${Math.floor(Math.random() * (600 - 300 + 1) + 300)}px]`,
-                            },
-                        }))
+                        .then(async (result) => {
+                            const permanentUrl = await storeImageInBlob(result.url);
+                            return {
+                                status: "fulfilled" as const,
+                                value: {
+                                    id: result.id,
+                                    src: permanentUrl,
+                                    prompt: result.prompt,
+                                    model:
+                                        availableModels.find((m) => m.id === modelId)?.displayName ??
+                                        modelId,
+                                    provider: result.provider,
+                                    // Random masonry height for the UI grid
+                                    height: `h-[${Math.floor(Math.random() * (600 - 300 + 1) + 300)}px]`,
+                                },
+                            };
+                        })
                         .catch((error) => ({
                             status: "rejected" as const,
                             reason: error?.message || "Generation failed",

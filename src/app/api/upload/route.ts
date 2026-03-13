@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile } from "fs/promises";
-import { join } from "path";
+import { put } from "@vercel/blob";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -31,20 +30,15 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Handle File saving to /public/uploads
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        
-        // Generate unique filename
+        // Upload file to Vercel Blob
         const fileExtension = file.name.split('.').pop();
         const fileName = `${crypto.randomUUID()}.${fileExtension}`;
-        const relativeUploadDir = "/uploads";
         
-        // Save the file
-        const path = join(process.cwd(), "public", "uploads", fileName);
-        await writeFile(path, buffer);
+        const blob = await put(`uploads/${fileName}`, file, {
+            access: 'public',
+        });
         
-        const imageUrl = `${relativeUploadDir}/${fileName}`;
+        const imageUrl = blob.url;
 
         // Create the prompt record in DB
         // For tags, we either connect or create them
