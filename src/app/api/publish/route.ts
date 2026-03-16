@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { algoliasearch } from "algoliasearch";
+
+// Initialize Algolia client
+const algoliaClient = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID && process.env.ALGOLIA_ADMIN_KEY
+    ? algoliasearch(process.env.NEXT_PUBLIC_ALGOLIA_APP_ID, process.env.ALGOLIA_ADMIN_KEY)
+    : null;
 
 export async function POST(req: Request) {
     try {
@@ -40,8 +46,40 @@ export async function POST(req: Request) {
                         create: { name: tag }
                     }))
                 } : undefined
+            },
+            include: {
+                tags: true,
+                category: true,
             }
         });
+
+        // Index the new prompt into Algolia
+        if (algoliaClient) {
+            try {
+                // Format the record for Algolia
+                const algoliaRecord = {
+                    objectID: promptRecord.id,
+                    title: promptRecord.title,
+                    fullText: promptRecord.fullText,
+                    imageUrl: promptRecord.imageUrl,
+                    toolUsed: promptRecord.toolUsed,
+                    category: promptRecord.category.name,
+                    tags: promptRecord.tags.map(t => t.name),
+                    createdAt: promptRecord.createdAt.getTime()
+                };
+
+                await algoliaClient.saveObject({ 
+                    indexName: "prompts", 
+                    body: algoliaRecord 
+                });
+                console.log("Successfully indexed prompt to Algolia:", promptRecord.id);
+            } catch (algoliaError) {
+                console.error("Failed to index to Algolia:", algoliaError);
+                // We don't fail the whole request if search indexing fails temporarily
+            }
+        } else {
+            console.warn("Skipping Algolia indexing: Missing API credentials in environment.");
+        }
 
         return NextResponse.json({ success: true, prompt: promptRecord });
 

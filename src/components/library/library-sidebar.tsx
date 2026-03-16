@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useRefinementList, useClearRefinements } from 'react-instantsearch';
 
 export const CATEGORIES = ["Photography", "Illustration", "UI/UX", "3D Renders", "Anime"];
 export const AI_TOOLS = [
@@ -37,40 +38,63 @@ interface LibrarySidebarProps {
     className?: string; // To allow appending classes like hidden md:flex
 }
 
+// Helper wrapper for Algolia refine lists to match Shadcn UI
+function CustomRefinementList({ attribute, title, isTag = false }: { attribute: string, title?: string, isTag?: boolean }) {
+    const { items, refine } = useRefinementList({ attribute });
+
+    if (items.length === 0) return null;
+
+    if (isTag) {
+        return (
+            <div className="space-y-4">
+                {title && <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</h3>}
+                <div className="flex flex-wrap gap-2">
+                    {items.map(item => (
+                        <Badge
+                            key={item.value}
+                            variant="secondary"
+                            className={`cursor-pointer transition-colors ${item.isRefined ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                refine(item.value);
+                            }}
+                        >
+                            {item.label} ({item.count})
+                        </Badge>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {title && <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</h3>}
+            <div className="space-y-3">
+                {items.map(item => (
+                    <div key={item.value} className="flex items-center space-x-3">
+                        <Checkbox
+                            id={`refine-${attribute}-${item.value}`}
+                            className="border-white/20 data-[state=checked]:bg-primary"
+                            checked={item.isRefined}
+                            onCheckedChange={() => refine(item.value)}
+                        />
+                        <Label 
+                            htmlFor={`refine-${attribute}-${item.value}`} 
+                            className="text-sm font-normal cursor-pointer hover:text-white transition-colors flex w-full justify-between"
+                        >
+                            <span>{item.label}</span>
+                            <span className="text-muted-foreground text-xs">{item.count}</span>
+                        </Label>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function LibrarySidebar({ filters, setFilters, className = "" }: LibrarySidebarProps) {
-    const handleCategoryChange = (category: string, checked: boolean) => {
-        setFilters(prev => ({
-            ...prev,
-            categories: checked
-                ? [...prev.categories, category]
-                : prev.categories.filter(c => c !== category)
-        }));
-    };
-
-    const handleToolChange = (tool: string, checked: boolean) => {
-        setFilters(prev => ({
-            ...prev,
-            tools: checked
-                ? [...prev.tools, tool]
-                : prev.tools.filter(t => t !== tool)
-        }));
-    };
-
-    const handleTagToggle = (tag: string) => {
-        setFilters(prev => {
-            const isActive = prev.tags.includes(tag);
-            return {
-                ...prev,
-                tags: isActive
-                    ? prev.tags.filter(t => t !== tag)
-                    : [...prev.tags, tag]
-            };
-        });
-    };
-
-    const clearAll = () => {
-        setFilters(prev => ({ ...prev, categories: [], tools: [], tags: [], showSaved: false }));
-    };
+    const { canRefine, refine: clearAll } = useClearRefinements();
 
     return (
         <aside className={`flex flex-col w-72 border-r border-white/10 glass z-10 ${className}`}>
@@ -82,7 +106,8 @@ export function LibrarySidebar({ filters, setFilters, className = "" }: LibraryS
                     variant="ghost"
                     size="sm"
                     className="h-8 text-xs text-muted-foreground hover:text-white"
-                    onClick={clearAll}
+                    onClick={() => clearAll()}
+                    disabled={!canRefine}
                 >
                     Clear All
                 </Button>
@@ -90,8 +115,7 @@ export function LibrarySidebar({ filters, setFilters, className = "" }: LibraryS
 
             <ScrollArea className="flex-1">
                 <div className="p-6 space-y-8">
-
-                    {/* Saved Prompts Toggle */}
+                    {/* Saved Prompts Toggle - Kept local for Phase 5 */}
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, showSaved: !prev.showSaved }))}>
                             <div className="flex items-center gap-3">
@@ -112,62 +136,9 @@ export function LibrarySidebar({ filters, setFilters, className = "" }: LibraryS
                         </div>
                     </div>
 
-                    {/* Category Filter */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Categories</h3>
-                        <div className="space-y-3">
-                            {CATEGORIES.map(cat => (
-                                <div key={cat} className="flex items-center space-x-3">
-                                    <Checkbox
-                                        id={`cat-${cat}`}
-                                        className="border-white/20 data-[state=checked]:bg-primary"
-                                        checked={filters.categories.includes(cat)}
-                                        onCheckedChange={(checked) => handleCategoryChange(cat, checked === true)}
-                                    />
-                                    <Label htmlFor={`cat-${cat}`} className="text-sm font-normal cursor-pointer hover:text-white transition-colors">{cat}</Label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* AI Tool Filter */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">AI Tool</h3>
-                        <div className="space-y-3">
-                            {AI_TOOLS.map(tool => (
-                                <div key={tool} className="flex items-center space-x-3">
-                                    <Checkbox
-                                        id={`tool-${tool}`}
-                                        className="border-white/20 data-[state=checked]:bg-primary"
-                                        checked={filters.tools.includes(tool)}
-                                        onCheckedChange={(checked) => handleToolChange(tool, checked === true)}
-                                    />
-                                    <Label htmlFor={`tool-${tool}`} className="text-sm font-normal cursor-pointer hover:text-white transition-colors">{tool}</Label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Style Tags */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Style Tags</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {STYLE_TAGS.map(tag => {
-                                const isActive = filters.tags.includes(tag);
-                                return (
-                                    <Badge
-                                        key={tag}
-                                        variant="secondary"
-                                        className={`cursor-pointer transition-colors ${isActive ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                                        onClick={() => handleTagToggle(tag)}
-                                    >
-                                        {tag}
-                                    </Badge>
-                                );
-                            })}
-                        </div>
-                    </div>
-
+                    <CustomRefinementList attribute="category" title="Categories" />
+                    <CustomRefinementList attribute="toolUsed" title="AI Tool" />
+                    <CustomRefinementList attribute="tags" title="Style Tags" isTag={true} />
                 </div>
             </ScrollArea>
         </aside>

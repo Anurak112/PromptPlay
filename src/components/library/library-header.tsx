@@ -1,17 +1,20 @@
 import * as React from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { LibrarySidebar, LibraryFilters } from "./library-sidebar";
+import { useSearchBox, useStats } from 'react-instantsearch';
 
 interface LibraryHeaderProps {
     filters: LibraryFilters;
     setFilters: React.Dispatch<React.SetStateAction<LibraryFilters>>;
-    totalResults: number;
 }
 
-export function LibraryHeader({ filters, setFilters, totalResults }: LibraryHeaderProps) {
+export function LibraryHeader({ filters, setFilters }: LibraryHeaderProps) {
+    const { query, refine, clear } = useSearchBox();
+    const { nbHits } = useStats();
+
     return (
         <header className="p-6 border-b border-white/5 flex flex-col md:flex-row gap-4 items-center justify-between z-10 bg-background/50 backdrop-blur-sm">
             <div className="relative w-full max-w-xl group">
@@ -19,13 +22,21 @@ export function LibraryHeader({ filters, setFilters, totalResults }: LibraryHead
                 <Input
                     type="text"
                     placeholder="Search by prompt, style, or creative keyword..."
-                    className="w-full pl-12 h-14 bg-card/60 backdrop-blur-md border-white/10 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary text-lg transition-all rounded-full shadow-lg"
-                    value={filters.searchQuery}
-                    onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                    className="w-full pl-12 pr-10 h-14 bg-card/60 backdrop-blur-md border-white/10 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary text-lg transition-all rounded-full shadow-lg"
+                    value={query}
+                    onChange={(e) => refine(e.currentTarget.value)}
                 />
+                {query.length > 0 && (
+                    <button 
+                        onClick={() => clear()}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                )}
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground whitespace-nowrap">
-                <span>Showing <strong className="text-white">{totalResults}</strong> results</span>
+                <span>Showing <strong className="text-white">{nbHits}</strong> results</span>
 
                 {/* Mobile Filter Toggle */}
                 <Sheet>
