@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { checkCredits, deductCredit } from "@/lib/credits";
 import {
     generateImage,
     getAvailableModels,
@@ -34,6 +36,21 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 { error: "Missing required fields: prompt or models." },
                 { status: 400 }
+            );
+        }
+
+        const { userId } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const requestedGenerations = models.length * (batchCount || 1);
+        const { hasCredits, currentCredits } = await checkCredits(userId);
+
+        if (!hasCredits || currentCredits < requestedGenerations) {
+            return NextResponse.json(
+                { error: "Insufficient credits. Please upgrade to Pro or try again tomorrow." },
+                { status: 402 }
             );
         }
 
@@ -99,6 +116,11 @@ export async function POST(req: Request) {
         const images = results
             .filter((r) => r.status === "fulfilled")
             .map((r) => (r as { status: "fulfilled"; value: object }).value);
+
+        // Deduct credits for successful generations
+        for (let i = 0; i < images.length; i++) {
+            await deductCredit(userId);
+        }
 
         const errors = results
             .filter((r) => r.status === "rejected")

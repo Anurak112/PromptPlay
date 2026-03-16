@@ -45,6 +45,17 @@ export default function CreatePage() {
             const data = await res.json();
 
             if (!res.ok) {
+                if (res.status === 402) {
+                    toast.error("Generation Failed", {
+                        description: data.error,
+                        action: {
+                            label: "Upgrade to Pro",
+                            onClick: () => window.location.href = "/pricing"
+                        },
+                        duration: 8000,
+                    });
+                    return; // Prevent further execution
+                }
                 throw new Error(data.error || "Failed to generate image");
             }
 
@@ -56,10 +67,11 @@ export default function CreatePage() {
 
             // Reset prompt
             setState(prev => ({ ...prev, prompt: "" }));
+            toast.success("Image generated successfully!");
 
         } catch (error: any) {
             console.error("Generation error:", error);
-            // Optionally add toast error notification here
+            toast.error(error.message || "An unexpected error occurred during generation.");
         } finally {
             setIsGenerating(false);
         }
